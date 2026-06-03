@@ -36,7 +36,7 @@ jobs:
           tags: "dockette/ansible:${{ matrix.image }}"
 
       - name: "Test image"
-        run: "make test IMAGE=dockette/ansible:${{ matrix.image }}"
+        run: "make test DOCKER_IMAGE=dockette/ansible DOCKER_TAG=${{ matrix.image }}"
 
   build:
     name: "Build (${{ matrix.image }})"

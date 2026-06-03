@@ -1,51 +1,61 @@
 # AGENTS.md
 
-## Project
+## Purpose
 
-This repository builds `dockette/ansible`, a small Docker image for running Ansible commands from a mounted project directory.
+This repository builds `dockette/ansible`, a small Debian-based Docker image family for running Ansible and ansible-lint from a mounted project directory. It is an image repository only: there is no application code, Compose setup, package manifest, or test suite outside Docker image build and smoke-test commands.
 
-## Image Layout
+## Image Matrix
 
-- Published image is `dockette/ansible`.
-- Supported tags are `debian-11` and `debian-10`.
-- Build contexts are `debian-11/` and `debian-10/`.
+- Published image: `dockette/ansible`.
+- Tags and build contexts: `debian-11`, `debian-10`.
+- Default local target: `DOCKER_TAG=debian-11` with `DOCKER_CONTEXT=debian-11`.
 - `debian-11/Dockerfile` starts from `dockette/debian:bullseye-slim`.
 - `debian-10/Dockerfile` starts from `dockette/debian:buster-slim`.
-- Both images install `gnupg2`, Python 3, pip, curl, wget, Ansible from the Ansible PPA, and `ansible-lint[community,yamllint]` through pip.
-- Both images default to `CMD ["/bin/bash"]`.
+- README usage mounts the current directory to `/srv` and opens Bash in `dockette/ansible:debian-11`.
 
-## Makefile
+## Dockerfile Layout
 
-- Default image is `${DOCKER_IMAGE}:${DOCKER_TAG}`, where `DOCKER_IMAGE?=dockette/ansible` and `DOCKER_TAG?=debian-11`.
-- Default build context is `DOCKER_CONTEXT?=debian-11`.
-- Use `make build` for the default local image build.
-- Use `make test` after building the selected tag; it checks `ansible --version` and conditionally checks `ansible-lint --version`.
-- Use `make run` for an interactive shell with the current working directory mounted at `/srv`.
-- When changing variants, override `DOCKER_TAG` and `DOCKER_CONTEXT` together, for example `make build test DOCKER_TAG=debian-10 DOCKER_CONTEXT=debian-10`.
+- Each supported tag has its own top-level directory containing one `Dockerfile`.
+- Both Dockerfiles currently share the same install flow: update Debian packages, install `gnupg2`, Python 3, pip, curl, and wget, add the Ansible Ubuntu Trusty PPA, install `ansible`, install `ansible-lint[community,yamllint]` with pip, then use Bash as the default command.
+- Keep Dockerfile changes mirrored between variants unless a Debian-version-specific difference is intentional and documented.
+- The cleanup command is currently `rm -rf /var/cache/apk/*` even though these are Debian images. Do not expand or normalize cleanup behavior without checking the image build impact.
 
-## CI
+## Commands
 
-- `.github/workflows/docker.yml` tests and builds both `debian-11` and `debian-10`.
-- The test job builds each matrix image locally with `docker/build-push-action` and `load: true`.
-- The test job must pass `DOCKER_IMAGE=dockette/ansible` and `DOCKER_TAG=${{ matrix.image }}` to `make test` so the Makefile checks the matrix image.
-- The build job delegates publishing to the shared `dockette/.github/.github/workflows/docker.yml@master` workflow.
-- The build job publishes multi-platform images for `linux/amd64` and `linux/arm64` only on `master`.
-- The docs job updates the Docker Hub description from `README.md` after successful builds on `master`.
+- `make build` builds `${DOCKER_IMAGE}:${DOCKER_TAG}` from `${DOCKER_CONTEXT}`.
+- `make test` runs `ansible --version` and runs `ansible-lint --version` only if the command is available.
+- `make run` starts an interactive Bash shell with the current directory mounted to `/srv`.
+- Test another variant with matching overrides, for example `make build test DOCKER_TAG=debian-10 DOCKER_CONTEXT=debian-10`.
+- Use `make -n build test run` to inspect the generated Docker commands without building or running containers.
+
+## Makefile Variables
+
+- `DOCKER_IMAGE` defaults to `dockette/ansible`.
+- `DOCKER_TAG` defaults to `debian-11`.
+- `DOCKER_CONTEXT` defaults to `debian-11`.
+- Keep tag and context values aligned unless deliberately testing a cross-context build.
+- Prefer `DOCKER_*` variable names for Docker-related Makefile changes.
+
+## CI Notes
+
+- `.github/workflows/docker.yml` runs on `workflow_dispatch`, pushes to `master`, and a weekly Monday schedule.
+- The `test` job builds each matrix image with `docker/build-push-action@v6`, loads it locally, tags it as `dockette/ansible:${{ matrix.image }}`, then calls `make test`.
+- The `build` job delegates publishing to `dockette/.github/.github/workflows/docker.yml@master` for `linux/amd64,linux/arm64` and pushes only on `master`.
+- The `docs` job updates the Docker Hub description from `README.md` on `master` after build completion.
+- The workflow passes `DOCKER_IMAGE=dockette/ansible` and `DOCKER_TAG=${{ matrix.image }}` to `make test`; keep that aligned with Makefile variable names so CI tests the matrix tag instead of the defaults.
 
 ## Validation
 
-- Run `make -n build test run` before committing Makefile changes.
-- Run `make build test DOCKER_TAG=debian-11 DOCKER_CONTEXT=debian-11` for the default image when Docker is available.
-- Run `make build test DOCKER_TAG=debian-10 DOCKER_CONTEXT=debian-10` when touching the Debian 10 context.
-- Run `git diff --check` before committing.
-- Keep `CLAUDE.md` as exactly `@AGENTS.md`.
+- Run `git diff --check` before handing off changes.
+- Run `make -n build test run` for Makefile command validation that does not require Docker.
+- For Docker-affecting changes, build and test every supported variant with matching `DOCKER_TAG` and `DOCKER_CONTEXT` overrides when feasible.
+- Verify `CLAUDE.md` remains exactly `@AGENTS.md`.
+- Verify intended changes are limited to the requested files.
 
-## Contribution Notes
+## Caveats
 
-- Keep `README.md`, `Makefile`, `.github/workflows/docker.yml`, and both Dockerfiles aligned when adding, removing, or renaming tags.
-- Prefer `DOCKER_*` Makefile variables for Docker image, tag, context, and platform settings.
-- Place `.PHONY: <target>` directly above each Makefile target.
-- Do not add Compose-specific guidance; this repo has no compose stack.
-- Avoid broad package upgrades unless you verify both Debian contexts still build.
-- Be careful with the legacy Ansible PPA and `apt-key` usage; changing either can break old Debian contexts.
-- Keep README badges and the Maintenance section consistent with the Dockette image baseline.
+- Do not edit `CLAUDE.md` beyond keeping it as the exact one-line pointer `@AGENTS.md`.
+- Do not add generic Dockette boilerplate; this repo has only the two Ansible image variants listed above.
+- Keep `README.md`, `Makefile`, `.github/workflows/docker.yml`, and both Dockerfiles in sync when changing tags, contexts, dependencies, or command behavior.
+- Avoid unrelated formatting churn in the HTML-heavy README and the minimal Dockerfiles.
+- Treat the Ansible PPA, `apt-key`, and Debian base-image choices as existing behavior, not incidental style issues, unless the task is specifically to modernize them.
