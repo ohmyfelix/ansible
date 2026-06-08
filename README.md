@@ -22,7 +22,6 @@ docker run -it --rm -v $(pwd):/srv dockette/ansible:debian-11 bash
 **Images**
 
 - dockette/ansible:debian-11
-- dockette/ansible:debian-10
 
 ## Development
 

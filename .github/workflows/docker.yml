@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["debian-11", "debian-10"]
+        image: ["debian-11"]
 
     steps:
       - name: "Checkout"
@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["debian-11", "debian-10"]
+        image: ["debian-11"]
 
     uses: dockette/.github/.github/workflows/docker.yml@master
     secrets: inherit
